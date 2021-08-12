@@ -87,7 +87,7 @@ contract Exchange {
     }
 
     function LPTokenAddress() public view returns (address) {
-        return address(_tokenA);
+        return address(_LPToken);
     }
 
     function getPrice(uint256 asset1, uint256 asset2) public pure returns (uint256) {

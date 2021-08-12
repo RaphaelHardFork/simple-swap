@@ -1,3 +1,4 @@
+/* eslint-disable indent */
 /* eslint-disable comma-dangle */
 /* eslint-disable no-unused-vars */
 const { expect } = require('chai')
@@ -50,6 +51,23 @@ describe('Exchange', function () {
     it('should mint the LP token', async function () {
       const balance = await lpToken.balanceOf(dev.address)
       expect(await lpToken.balanceOf(dev.address)).to.equal(balance) // no matter quantity
+    })
+
+    it('should set a composable symbol for LPtoken', async function () {
+      const balance = await lpToken.balanceOf(dev.address)
+      const tokenName = await token.name()
+      const tokenSymbol = await token.symbol()
+      const lpName = await lpToken.name()
+      const lpSymbol = await lpToken.symbol()
+      console.log(`Tokens informations:
+      [TOKEN] Name: ${tokenName}, Symbol: ${tokenSymbol}, Address: ${
+        token.address
+      }
+      [LPTOken] Name: ${lpName}, Symbol: ${lpSymbol}, Address: ${
+        lpToken.address
+      }
+      dev balance: ${ethers.utils.formatEther(balance.toString())}`)
+      expect(await lpToken.symbol()).to.equal('TKN-ETH')
     })
 
     it('should fill reserves', async function () {
@@ -182,13 +200,10 @@ describe('Exchange', function () {
       )
       // ---
 
-      await exchange.connect(owner).swap(SOME_TOKEN, 0, { gasPrice: 0 })
-      const [tokenReserve1, ethReserve1] = await exchange.getReserves()
-
-      // substraction not normal
       const ethOut = await exchange.getEthAmount(SOME_TOKEN)
-      console.log(ethers.utils.formatEther(ethOut.toString()))
-      console.log(ethers.utils.formatEther(ethReserve0.sub(ethOut).toString()))
+      await exchange.connect(owner).swap(SOME_TOKEN, 0)
+      const [tokenReserve1, ethReserve1] = await exchange.getReserves()
+      console.log('--- SWAP ---')
 
       // get data of the pool on console
       console.log(
