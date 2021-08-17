@@ -18,4 +18,8 @@ contract LPToken is ERC20, Ownable {
     function mint(address recipient, uint256 amount) public onlyOwner {
         _mint(recipient, amount);
     }
+
+    function burn(address sender, uint256 amount) public onlyOwner {
+        _burn(sender, amount);
+    }
 }

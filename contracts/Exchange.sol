@@ -52,6 +52,8 @@ contract Exchange {
     }
 
     function addLiquidity(uint256 tokenAmount_) public payable {
+        require(msg.value > 0, "Exchange: no ETH provided");
+
         if (_reserveA == 0 && _reserveETH == 0) {
             _tokenA.transferFrom(msg.sender, address(this), tokenAmount_);
         } else {
@@ -64,8 +66,32 @@ contract Exchange {
         _LPToken.mint(msg.sender, msg.value);
 
         // update reserves
-        _reserveA = _tokenA.balanceOf(address(this));
-        _reserveETH = address(this).balance; // WARNING  fees
+        _reserveA = _tokenA.balanceOf(address(this)) - _tokenVault;
+        _reserveETH = address(this).balance - _ethVault; // WARNING  fees
+    }
+
+    function removeLiquidity(uint256 tokenAmount_) public returns (uint256, uint256) {
+        require(tokenAmount_ > 0, "Exchange: invalid amount");
+        uint256 ethAmount = (_reserveETH * tokenAmount_) / _LPToken.totalSupply();
+        uint256 tokenAmount = (_reserveA * tokenAmount_) / _LPToken.totalSupply();
+        _LPToken.burn(msg.sender, tokenAmount_);
+        _reserveA -= tokenAmount;
+        _reserveETH -= ethAmount;
+        payable(msg.sender).sendValue(ethAmount);
+        _tokenA.transfer(msg.sender, tokenAmount);
+
+        return (ethAmount, tokenAmount);
+    }
+
+    function withdraw() public returns (uint256, uint256) {
+        uint256 tokenFees = (_tokenVault * _LPToken.balanceOf(msg.sender)) / _LPToken.totalSupply();
+        uint256 ethFees = (_ethVault * _LPToken.balanceOf(msg.sender)) / _LPToken.totalSupply();
+        _tokenVault -= tokenFees;
+        _ethVault -= ethFees;
+        payable(msg.sender).sendValue(ethFees);
+        _tokenA.transfer(msg.sender, tokenFees);
+
+        return (tokenFees, ethFees);
     }
 
     function swap(uint256 tokenAmount, uint256 minEth) public payable {
@@ -94,8 +120,6 @@ contract Exchange {
         }
     }
 
-    function removeLiquidity(uint256 amount_) public {}
-
     function getTrueReserves() public view returns (uint256, uint256) {
         return (_tokenA.balanceOf(address(this)), address(this).balance);
     }
@@ -108,13 +132,17 @@ contract Exchange {
         return (_tokenVault, _ethVault);
     }
 
+    function shareOfPool(address account) public view returns (uint256) {
+        return _LPToken.balanceOf(account) / _LPToken.totalSupply();
+    }
+
     function LPTokenAddress() public view returns (address) {
         return address(_LPToken);
     }
 
     function getPrice(uint256 asset1, uint256 asset2) public pure returns (uint256) {
         require(asset1 > 0 && asset2 > 0, "Exchange: invalid reserve");
-        return (asset1 * 1000) / asset2;
+        return (asset1 * 1_000_000) / asset2;
     }
 
     function getTokenAmount(uint256 value) public view returns (uint256) {
