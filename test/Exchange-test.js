@@ -12,6 +12,7 @@ const ONE_ETH = ethers.utils.parseEther('1')
 const SOME_TOKEN = ethers.utils.parseEther('300')
 const ADDRESS_ZERO = ethers.constants.AddressZero
 
+// pure function
 const getUserBalance = async (token, lpToken, userAddress, userName) => {
   const ethBalance = await ethers.provider.getBalance(userAddress)
   const tokenBalance = await token.balanceOf(userAddress)
@@ -24,11 +25,15 @@ const getUserBalance = async (token, lpToken, userAddress, userName) => {
 }
 
 const getPoolData = async (exchange, swapInfo) => {
+  const [tokenBalance, ethBalance] = await exchange.getTrueReserves()
   const [tokenReserve, ethReserve] = await exchange.getReserves()
   const [tokenVault, ethVault] = await exchange.getVaults()
   const ethPrice = (await exchange.getPrice(tokenReserve, ethReserve)) / 1000000
 
-  console.log(`${swapInfo !== undefined ? 'SWAP INFORMATION' : ''} 
+  console.log(`${swapInfo !== undefined ? 'SWAP INFORMATION' : ''}
+  Balances: ${ethers.utils.formatEther(
+    tokenBalance.toString()
+  )} TOKEN, ${ethers.utils.formatEther(ethBalance.toString())} ETH
   Reserves: ${ethers.utils.formatEther(
     tokenReserve.toString()
   )} TOKEN, ${ethers.utils.formatEther(ethReserve.toString())} ETH
@@ -172,9 +177,9 @@ describe('Exchange', function () {
     it('should change balances of the swapper [ETH to Token]', async function () {
       const [, amountWithFee] = await exchange.feeCalculation(ONE_ETH)
       const newTokenBalance = await exchange.getTokenAmount(amountWithFee)
-      await getPoolData(exchange, '1 ETH')
+      // await getPoolData(exchange, '1 ETH')
       swapCall = await exchange.connect(owner).swap(0, 0, { value: ONE_ETH })
-      await getPoolData(exchange)
+      // await getPoolData(exchange)
 
       expect(
         await token.balanceOf(owner.address),
@@ -189,9 +194,9 @@ describe('Exchange', function () {
     it('should change balances of the swapper [Token to ETH]', async function () {
       const [, amountWithFee] = await exchange.feeCalculation(SOME_TOKEN)
       const newEthBalance = await exchange.getEthAmount(amountWithFee)
-      await getPoolData(exchange, '300 TOKEN')
+      // await getPoolData(exchange, '300 TOKEN')
       swapCall = await exchange.connect(owner).swap(SOME_TOKEN, 0)
-      await getPoolData(exchange)
+      // await getPoolData(exchange)
 
       expect(
         await token.balanceOf(owner.address),
@@ -243,29 +248,37 @@ describe('Exchange', function () {
     })
 
     it('should mint LP token', async function () {
-      expect(await lpToken.balanceOf(lp1.address)).to.equal(ONE_ETH)
-      expect(await lpToken.balanceOf(lp2.address)).to.equal(ONE_ETH.mul(2))
+      const [tokenVault, ethVault] = await exchange.getVaults()
+      expect(await lpToken.balanceOf(lp1.address)).to.equal(
+        ONE_ETH.sub(ethVault)
+      )
+      expect(await lpToken.balanceOf(lp2.address)).to.equal(
+        ONE_ETH.mul(2).sub(ethVault)
+      )
     })
 
     it('should display the share of the pool', async function () {
-      const share = ethers.utils.formatEther(
-        (await exchange.shareOfPool(lp1.address)).toString()
-      )
-      const totSup = ethers.utils.formatEther(
-        (await lpToken.totalSupply()).toString()
-      )
+      const totSup = ethers.utils.formatEther(await lpToken.totalSupply())
       const lp1BALANCE = ethers.utils.formatEther(
-        (await lpToken.balanceOf(lp2.address)).toString()
+        await lpToken.balanceOf(lp1.address)
+      )
+      const lp2BALANCE = ethers.utils.formatEther(
+        await lpToken.balanceOf(lp2.address)
+      )
+      const devBALANCE = ethers.utils.formatEther(
+        await lpToken.balanceOf(dev.address)
       )
 
-      console.log(`${share * 100}%`)
-      console.log(totSup)
-      console.log((lp1BALANCE / totSup) * 100)
+      console.log(`Share of the pool:
+      LP1: ${Number(lp1BALANCE) / Number(totSup)}%
+      LP2: ${Number(lp2BALANCE) / Number(totSup)}%
+      dev: ${Number(devBALANCE) / Number(totSup)}%`)
     })
   })
 
   describe('withdraw fees', function () {
     beforeEach(async function () {
+      await getPoolData(exchange)
       await exchange.connect(lp2).swap(0, 0, { value: ONE_ETH })
       await exchange.connect(lp2).swap(0, 0, { value: ONE_ETH })
       await exchange.connect(lp2).swap(0, 0, { value: ONE_ETH })
@@ -274,29 +287,16 @@ describe('Exchange', function () {
       await exchange.connect(lp2).swap(0, 0, { value: ONE_ETH })
       const balance = await token.balanceOf(lp2.address)
       await token.connect(lp2).approve(exchange.address, balance)
-      // await exchange.connect(lp2).swap(balance, 0)
+      await exchange.connect(lp2).swap(balance, 0)
     })
 
     it('should withdraw', async function () {
-      getPoolData(exchange)
+      await getPoolData(exchange)
 
       await exchange.connect(dev).removeLiquidity(ONE_ETH.mul(5))
+      console.log('LIQUIDITY REMOVED by DEV')
 
-      getPoolData(exchange)
-    })
-
-    it('should withdraw fees', async function () {
-      const balance = await token.balanceOf(lp2.address)
-      const [BT, BE] = await exchange.getReserves()
-      const price = await exchange.getPrice(BE, BT)
-
-      await exchange
-        .connect(lp2)
-        .addLiquidity(balance, { value: balance.div(price) })
-      await exchange.connect(dev).withdraw()
-      getPoolData(exchange)
-      // withdraw()
-      // probleme les nouveau arrivant on une part sur les fees
+      await getPoolData(exchange)
     })
   })
 })

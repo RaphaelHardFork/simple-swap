@@ -63,35 +63,33 @@ contract Exchange {
         }
 
         // mint LP token
-        _LPToken.mint(msg.sender, msg.value);
+        _LPToken.mint(msg.sender, msg.value - _ethVault);
 
         // update reserves
         _reserveA = _tokenA.balanceOf(address(this)) - _tokenVault;
         _reserveETH = address(this).balance - _ethVault; // WARNING  fees
     }
 
-    function removeLiquidity(uint256 tokenAmount_) public returns (uint256, uint256) {
-        require(tokenAmount_ > 0, "Exchange: invalid amount");
-        uint256 ethAmount = (_reserveETH * tokenAmount_) / _LPToken.totalSupply();
-        uint256 tokenAmount = (_reserveA * tokenAmount_) / _LPToken.totalSupply();
-        _LPToken.burn(msg.sender, tokenAmount_);
-        _reserveA -= tokenAmount;
-        _reserveETH -= ethAmount;
-        payable(msg.sender).sendValue(ethAmount);
-        _tokenA.transfer(msg.sender, tokenAmount);
+    function removeLiquidity(uint256 lpAmount_) public returns (uint256, uint256) {
+        require(lpAmount_ > 0, "Exchange: invalid amount");
+        uint256 lpTotalSupply = _LPToken.totalSupply();
 
-        return (ethAmount, tokenAmount);
-    }
+        uint256 ethReserveOut = (_reserveETH * lpAmount_) / lpTotalSupply;
+        uint256 tokenReserveOut = (_reserveA * lpAmount_) / lpTotalSupply;
 
-    function withdraw() public returns (uint256, uint256) {
-        uint256 tokenFees = (_tokenVault * _LPToken.balanceOf(msg.sender)) / _LPToken.totalSupply();
-        uint256 ethFees = (_ethVault * _LPToken.balanceOf(msg.sender)) / _LPToken.totalSupply();
-        _tokenVault -= tokenFees;
-        _ethVault -= ethFees;
-        payable(msg.sender).sendValue(ethFees);
-        _tokenA.transfer(msg.sender, tokenFees);
+        uint256 ethVaultOut = (_ethVault * lpAmount_) / lpTotalSupply;
+        uint256 tokenVaultOut = (_tokenVault * lpAmount_) / lpTotalSupply;
 
-        return (tokenFees, ethFees);
+        _LPToken.burn(msg.sender, lpAmount_);
+        _reserveETH -= ethReserveOut;
+        _reserveA -= tokenReserveOut;
+        _ethVault -= ethVaultOut;
+        _tokenVault -= tokenVaultOut;
+
+        payable(msg.sender).sendValue(ethReserveOut + ethVaultOut);
+        _tokenA.transfer(msg.sender, tokenReserveOut + tokenVaultOut);
+
+        return (ethReserveOut + ethVaultOut, tokenReserveOut + tokenVaultOut);
     }
 
     function swap(uint256 tokenAmount, uint256 minEth) public payable {
@@ -101,20 +99,20 @@ contract Exchange {
         if (msg.value > 0) {
             // ETH => TOKEN
             (uint256 fees, uint256 amount) = feeCalculation(msg.value);
-            _ethVault += fees;
             outputAmount = getTokenAmount(amount);
             require(outputAmount >= tokenAmount, "Exchange: Slippage too high...");
             _reserveA -= outputAmount;
             _reserveETH += amount;
+            _ethVault += fees;
             _tokenA.transfer(msg.sender, outputAmount);
         } else {
             // TOKEN => ETH
             (uint256 fees, uint256 amount) = feeCalculation(tokenAmount);
-            _tokenVault += fees;
             outputAmount = getEthAmount(amount);
             require(outputAmount >= minEth, "Exchange: Slippage too high...");
             _reserveETH -= outputAmount;
             _reserveA += amount;
+            _tokenVault += fees;
             _tokenA.transferFrom(msg.sender, address(this), tokenAmount);
             payable(msg.sender).sendValue(outputAmount);
         }
