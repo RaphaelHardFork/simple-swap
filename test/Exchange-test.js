@@ -28,7 +28,8 @@ const getPoolData = async (exchange, swapInfo) => {
   const [tokenBalance, ethBalance] = await exchange.getTrueReserves()
   const [tokenReserve, ethReserve] = await exchange.getReserves()
   const [tokenVault, ethVault] = await exchange.getVaults()
-  const ethPrice = (await exchange.getPrice(tokenReserve, ethReserve)) / 1000000
+  // const ethPrice = (await exchange.getPrice(tokenReserve, ethReserve)) / 1000000
+  const ethPrice = null
 
   console.log(`${swapInfo !== undefined ? 'SWAP INFORMATION' : ''}
   Balances: ${ethers.utils.formatEther(
@@ -43,6 +44,26 @@ const getPoolData = async (exchange, swapInfo) => {
   Prices: ${ethPrice} Token per ETH
   
   ${swapInfo !== undefined ? `--- SWAP ${swapInfo} ---` : ''}`)
+}
+
+const getShares = async (lpToken, lps) => {
+  const nb = lps.length
+  const totSup = Number(ethers.utils.formatEther(await lpToken.totalSupply()))
+  const lpShare = []
+  for (let i = 0; i < nb; i++) {
+    const balance = Number(
+      ethers.utils.formatEther(await lpToken.balanceOf(lps[i].address))
+    )
+    const lp = {
+      [lps[i].address]: {
+        LPToken: balance,
+        share: `${(balance / totSup) * 100}%`,
+      },
+    }
+    lpShare.push(lp)
+  }
+  console.log(lpShare)
+  return lpShare
 }
 
 // TEST SCRIPT
@@ -269,16 +290,15 @@ describe('Exchange', function () {
         await lpToken.balanceOf(dev.address)
       )
 
-      console.log(`Share of the pool:
-      LP1: ${Number(lp1BALANCE) / Number(totSup)}%
-      LP2: ${Number(lp2BALANCE) / Number(totSup)}%
-      dev: ${Number(devBALANCE) / Number(totSup)}%`)
+      getShares(lpToken, [lp1, lp2, dev])
     })
   })
 
   describe('withdraw fees', function () {
     beforeEach(async function () {
       await getPoolData(exchange)
+
+      // LP2 SWAP a lot
       await exchange.connect(lp2).swap(0, 0, { value: ONE_ETH })
       await exchange.connect(lp2).swap(0, 0, { value: ONE_ETH })
       await exchange.connect(lp2).swap(0, 0, { value: ONE_ETH })
@@ -288,12 +308,19 @@ describe('Exchange', function () {
       const balance = await token.balanceOf(lp2.address)
       await token.connect(lp2).approve(exchange.address, balance)
       await exchange.connect(lp2).swap(balance, 0)
+
+      // LP1 add liquidity
+      await token.connect(dev).transfer(lp1.address, SUPPLY.div(5))
+      await token.connect(lp1).approve(exchange.address, SUPPLY.div(5))
+      await exchange
+        .connect(lp1)
+        .addLiquidity(SUPPLY.div(5), { value: ONE_ETH.mul(10) })
     })
 
     it('should withdraw', async function () {
+      await getShares(lpToken, [lp1, lp2, dev])
       await getPoolData(exchange)
-
-      await exchange.connect(dev).removeLiquidity(ONE_ETH.mul(5))
+      await exchange.connect(dev).removeLiquidity(ONE_ETH.mul(10))
       console.log('LIQUIDITY REMOVED by DEV')
 
       await getPoolData(exchange)
