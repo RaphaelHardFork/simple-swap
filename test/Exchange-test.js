@@ -318,10 +318,11 @@ describe('Exchange', function () {
     })
 
     it('should withdraw', async function () {
-      await getShares(lpToken, [lp1, lp2, dev])
+      await getShares(lpToken, [lp1, dev])
       await getPoolData(exchange)
-      await exchange.connect(dev).removeLiquidity(ONE_ETH.mul(10))
-      console.log('LIQUIDITY REMOVED by DEV')
+      const lpBalance = await lpToken.balanceOf(lp1.address)
+      await exchange.connect(lp1).removeLiquidity(lpBalance)
+      console.log('LIQUIDITY REMOVED by LP1')
 
       await getPoolData(exchange)
     })
