@@ -6,12 +6,6 @@ const { ethers } = require('hardhat')
 
 // some tests: https://github.com/RaphaelHardFork/ico-hardhat
 
-const CONTRACT_NAME = 'Exchange'
-const SUPPLY = ethers.utils.parseEther('100000')
-const ONE_ETH = ethers.utils.parseEther('1')
-const SOME_TOKEN = ethers.utils.parseEther('300')
-const ADDRESS_ZERO = ethers.constants.AddressZero
-
 // pure function
 const getUserBalance = async (token, lpToken, userAddress, userName) => {
   const ethBalance = await ethers.provider.getBalance(userAddress)
@@ -65,6 +59,12 @@ const getShares = async (lpToken, lps) => {
   console.log(lpShare)
   return lpShare
 }
+
+const CONTRACT_NAME = 'Exchange'
+const SUPPLY = ethers.utils.parseEther('100000')
+const ONE_ETH = ethers.utils.parseEther('1')
+const SOME_TOKEN = ethers.utils.parseEther('300')
+const ADDRESS_ZERO = ethers.constants.AddressZero
 
 // TEST SCRIPT
 describe('Exchange', function () {

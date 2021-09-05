@@ -1,0 +1,8 @@
+{
+  "Token": {
+    "rinkeby": { "address": "0x4197FA8F6D8d77e35bBb1E7f341A2D760DeA661a" }
+  },
+  "Exchange": {
+    "rinkeby": { "address": "0x9be249C9942B1A994642A6F4964404A429ccd96a" }
+  }
+}

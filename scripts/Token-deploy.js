@@ -2,15 +2,16 @@ const { ethers } = require('hardhat')
 const hre = require('hardhat')
 const { deployed } = require('./deployed')
 
-const CONTRACT_NAME = 'Contract'
+const CONTRACT_NAME = 'Token'
+const SUPPLY = ethers.utils.parseEther('100000')
 
 const main = async () => {
   const [deployer] = await ethers.getSigners()
   console.log('Deploying contracts with the account:', deployer.address)
-  const Contract = await hre.ethers.getContractFactory(CONTRACT_NAME)
-  const contract = await Contract.deploy()
-  await contract.deployed()
-  await deployed(CONTRACT_NAME, hre.network.name, contract.address)
+  const Token = await hre.ethers.getContractFactory(CONTRACT_NAME)
+  const token = await Token.deploy(SUPPLY)
+  await token.deployed()
+  await deployed(CONTRACT_NAME, hre.network.name, token.address)
 }
 
 main()

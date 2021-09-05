@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "./LPToken.sol";
 
 /** @title      Exchange liquidity pool ETH-TOKEN
- *  @dev        Only one token can be in the pull with ETH
+ *  @dev        Only one token can be in the pool with ETH
  * */
 
 contract Exchange {
